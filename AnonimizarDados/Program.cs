@@ -25,7 +25,7 @@ internal static class Program
         var configuracao = LerArquivoDeConfiguracao();
         
         var parametros = configuracao.GetSection("Parametros").Get<Parametros>();
-        var stringConexao = configuracao.GetConnectionString("ItsSeg");
+        var stringConexao = configuracao.GetConnectionString("Banco");
         
         if (parametros is null)
         {
@@ -33,7 +33,7 @@ internal static class Program
             return;
         }
         
-        if (stringConexao is null)
+        if (string.IsNullOrEmpty(stringConexao))
         {
             Console.WriteLine("String de conexão não informada.");
             return;

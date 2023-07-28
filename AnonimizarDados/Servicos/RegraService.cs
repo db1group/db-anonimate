@@ -24,7 +24,7 @@ public static class RegraService
             case RegrasEnum.Nome:
                 return new Faker("pt_BR").Person.FullName;
             case RegrasEnum.Numerico:
-                return new Faker("pt_BR").Random.Number(1_000);
+                return new Faker("pt_BR").Random.Number(1, 1_000);
             case RegrasEnum.Telefone:
                 return new Faker("pt_BR").Phone.PhoneNumber("(##) ####-####");
             default:
