@@ -12,8 +12,8 @@ namespace AnonimizarDados;
 internal static class Program
 {
     private static readonly CancellationTokenSource TokenSource = new();
-    
-    private static async Task Main(string[] args)
+
+    private static async Task Main()
     {
         Console.CancelKeyPress += (_, eventArgs) =>
         {
@@ -23,16 +23,16 @@ internal static class Program
         };
 
         var configuracao = LerArquivoDeConfiguracao();
-        
+
         var parametros = configuracao.GetSection("Parametros").Get<Parametros>();
         var stringConexao = configuracao.GetConnectionString("Banco");
-        
+
         if (parametros is null)
         {
             Console.WriteLine("Nenhum parâmetro registrado.");
             return;
         }
-        
+
         if (string.IsNullOrEmpty(stringConexao))
         {
             Console.WriteLine("String de conexão não informada.");
@@ -57,22 +57,22 @@ internal static class Program
                 parametros.AtualizarPorRegra,
                 TokenSource.Token);
         }
-        
+
         if (parametros.Excluir.Any())
         {
             await new ExcluirDadosServico(stringConexao).ExcluirAsync(
                 parametros.Excluir,
                 TokenSource.Token);
         }
-        
+
         if (parametros.Truncar.Any())
         {
             await new ExcluirDadosServico(stringConexao).TruncarAsync(
                 parametros.Truncar,
                 TokenSource.Token);
         }
-        
-        Console.WriteLine("Operação concluída. Pressione qualquer tecla para finalizar.");
+
+        Console.WriteLine("Operação finalizada. Pressione qualquer tecla para encerrar.");
         Console.ReadKey();
     }
 
@@ -87,23 +87,23 @@ internal static class Program
     private static bool TestarConexaoComBanco(string stringConexao)
     {
         using var conexao = new SqlConnection(stringConexao);
-        
+
         try
         {
             conexao.Open();
 
             if (conexao.Database.EndsWith("_RANDOM"))
                 return true;
-            
+
             Console.WriteLine("Banco de dados inválido. Aponte para um banco de dados com final '_RANDOM'.");
-            
+
             return false;
         }
         catch (SqlException ex)
         {
             Console.WriteLine("Falha ao conectar no banco de dados.");
             Console.WriteLine(ex.Message);
-            
+
             return false;
         }
         finally
