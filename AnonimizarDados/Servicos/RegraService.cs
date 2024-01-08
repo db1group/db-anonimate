@@ -1,34 +1,58 @@
+using AnonimizarDados.Dtos;
 using AnonimizarDados.Enums;
-using Bogus;
-using Bogus.Extensions.Brazil;
 using System;
 
 namespace AnonimizarDados.Servicos;
 
 public static class RegraService
 {
-    public static object GerarValor(RegrasEnum regraEnum)
+    public static void GerarBuilder(BuilderEntidadeFicticia builder, RegrasEnum regraEnum)
     {
         switch (regraEnum)
         {
             case RegrasEnum.Cep:
-                return new Faker("pt_BR").Address.ZipCode("########");
+                builder.Cep();
+                break;
             case RegrasEnum.Cpf:
-                return new Faker("pt_BR").Person.Cpf(false);
+                builder.Cpf();
+                break;
             case RegrasEnum.Documento:
-                return new Faker("pt_BR").Person.Random.ReplaceNumbers("#########");
+                builder.Documento();
+                break;
             case RegrasEnum.Email:
-                return new Faker("pt_BR").Person.Email;
+                builder.Email();
+                break;
             case RegrasEnum.Endereco:
-                return new Faker("pt_BR").Address.StreetName();
+                builder.Endereco();
+                break;
             case RegrasEnum.Nome:
-                return new Faker("pt_BR").Person.FullName;
+                builder.Nome();
+                break;
             case RegrasEnum.Numerico:
-                return new Faker("pt_BR").Random.Number(1, 1_000);
+                builder.Numerico();
+                break;
             case RegrasEnum.Telefone:
-                return new Faker("pt_BR").Phone.PhoneNumber("(##) ####-####");
+                builder.Telefone();
+                break;
+            case RegrasEnum.Infefinido:
             default:
-                throw new NotImplementedException("Regra não implementada.");
+                throw new NotImplementedException("Regra não implementada para builder.");
         }
+    }
+
+    public static object ObterValor(EntidadeFicticia entidade, RegrasEnum regraEnum)
+    {
+        return regraEnum switch
+        {
+            RegrasEnum.Cep => entidade.Cep,
+            RegrasEnum.Cpf => entidade.Cpf,
+            RegrasEnum.Documento => entidade.Documento,
+            RegrasEnum.Email => entidade.Email,
+            RegrasEnum.Endereco => entidade.Endereco,
+            RegrasEnum.Nome => entidade.Nome,
+            RegrasEnum.Numerico => entidade.Numerico,
+            RegrasEnum.Telefone => entidade.Telefone,
+            _ => throw new NotImplementedException("Regra não implementada para obter valor."),
+        };
     }
 }

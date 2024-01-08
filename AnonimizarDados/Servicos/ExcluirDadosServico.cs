@@ -1,7 +1,6 @@
 using AnonimizarDados.Dtos;
+using AnonimizarDados.ValueObjects;
 using Dapper;
-using Microsoft.Data.SqlClient;
-using SqlKata.Compilers;
 using SqlKata.Execution;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,17 +9,11 @@ using System.Threading.Tasks;
 
 namespace AnonimizarDados.Servicos;
 
-public class ExcluirDadosServico
+public class ExcluirDadosServico : BaseService
 {
-    private readonly SqlConnection _conexao;
-    private readonly QueryFactory _queryFactory;
-    
     public ExcluirDadosServico(string stringConexao)
-    {
-        _conexao = new SqlConnection(stringConexao);
-        var compilador = new SqlServerCompiler();
-        _queryFactory = new QueryFactory(_conexao, compilador);
-    }
+        : base(stringConexao)
+    { }
 
     public async Task ExcluirAsync(
         IEnumerable<ParametrosExclusao> parametrosParaExcluir,
@@ -29,14 +22,16 @@ public class ExcluirDadosServico
         foreach (var parametroParaExcluir in parametrosParaExcluir.OrderBy(o => o.Prioridade))
         {
             if (cancellationToken.IsCancellationRequested) return;
-            
+
+            if (!await VerificarExistenciaTabela(new DefinicaoTabela(parametroParaExcluir), cancellationToken)) continue;
+
             LogService.Info($"Excluindo: {parametroParaExcluir.NomeCompletoTabela}");
-            
+
             await _queryFactory.Query(parametroParaExcluir.NomeCompletoTabela)
                 .DeleteAsync(cancellationToken: cancellationToken);
         }
     }
-    
+
     public async Task TruncarAsync(
         IEnumerable<ParametrosExclusao> parametrosParaExcluir,
         CancellationToken cancellationToken)
@@ -44,9 +39,11 @@ public class ExcluirDadosServico
         foreach (var parametroParaExcluir in parametrosParaExcluir.OrderBy(o => o.Prioridade))
         {
             if (cancellationToken.IsCancellationRequested) return;
-            
+
+            if (!await VerificarExistenciaTabela(new DefinicaoTabela(parametroParaExcluir), cancellationToken)) continue;
+
             LogService.Info($"Truncando: {parametroParaExcluir.NomeCompletoTabela}");
-            
+
             await _conexao.ExecuteAsync($"TRUNCATE TABLE {parametroParaExcluir.NomeCompletoTabela}", cancellationToken);
         }
     }

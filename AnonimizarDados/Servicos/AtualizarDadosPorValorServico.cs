@@ -1,6 +1,5 @@
 using AnonimizarDados.Dtos;
-using Microsoft.Data.SqlClient;
-using SqlKata.Compilers;
+using AnonimizarDados.ValueObjects;
 using SqlKata.Execution;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,30 +8,27 @@ using System.Threading.Tasks;
 
 namespace AnonimizarDados.Servicos;
 
-public class AtualizarDadosPorValorServico
+public class AtualizarDadosPorValorServico : BaseService
 {
-    private readonly QueryFactory _queryFactory;
-    
     public AtualizarDadosPorValorServico(string stringConexao)
-    {
-        var conexao = new SqlConnection(stringConexao);
-        var compilador = new SqlServerCompiler();
-        _queryFactory = new QueryFactory(conexao, compilador);
-    }
+        : base(stringConexao)
+    { }
 
     public async Task AtualizarAsync(
         IEnumerable<ParametrosAtualizacaoDeValor> parametrosParaAtualizar,
         CancellationToken cancellationToken)
     {
         var parametrosAgrupados = AgruparParametrosPorTabela(parametrosParaAtualizar);
-        
+
         foreach (var parametroParaAtualizar in parametrosAgrupados)
         {
             if (cancellationToken.IsCancellationRequested) return;
-            
-            LogService.Info($"Atualizando: {parametroParaAtualizar.NomeCompletoTabela}");
-            
-            await _queryFactory.Query(parametroParaAtualizar.NomeCompletoTabela)
+
+            if (!await VerificarExistenciaTabela(parametroParaAtualizar.Tabela, cancellationToken)) continue;
+
+            LogService.Info($"Atualizando: {parametroParaAtualizar.Tabela.NomeCompletoTabela}");
+
+            await _queryFactory.Query(parametroParaAtualizar.Tabela.NomeCompletoTabela)
                 .UpdateAsync(
                     parametroParaAtualizar.ColunaValor,
                     cancellationToken: cancellationToken);
@@ -43,23 +39,24 @@ public class AtualizarDadosPorValorServico
         IEnumerable<ParametrosAtualizacaoDeValor> parametrosParaAtualizar)
     {
         return parametrosParaAtualizar.GroupBy(
-                p => new { p.NomeCompletoTabela },
-                p => new KeyValuePair<string, object?>(p.Coluna, p.Valor.Equals("null") ? null : p.Valor),
-                (g, p) => new Agrupamento(g.NomeCompletoTabela, p))
+                keySelector: p => p,
+                elementSelector: p => new KeyValuePair<string, object?>(p.Coluna, p.Valor.Equals("null") ? null : p.Valor),
+                resultSelector: (g, p) => new Agrupamento(g, p),
+                comparer: new ParametrosAtualizacaoDeValorEqualityComparer())
             .ToList();
     }
 
     private class Agrupamento
     {
-        public string NomeCompletoTabela { get; }
-        
+        public DefinicaoTabela Tabela { get; }
+
         public IEnumerable<KeyValuePair<string, object?>> ColunaValor { get; }
 
         public Agrupamento(
-            string nomeCompletoTabela,
+            TemplateParametrosDeBanco informacoesTabela,
             IEnumerable<KeyValuePair<string, object?>> colunaValor)
         {
-            NomeCompletoTabela = nomeCompletoTabela;
+            Tabela = new DefinicaoTabela(informacoesTabela);
             ColunaValor = colunaValor;
         }
     }
