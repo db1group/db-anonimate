@@ -1,3 +1,4 @@
+using System;
 using AnonimizarDados.Dtos;
 using AnonimizarDados.Enums;
 using AnonimizarDados.ValueObjects;
@@ -8,13 +9,15 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using AnonimizarDados.Adapters.Contrato;
+using SqlKata.Compilers;
 
 namespace AnonimizarDados.Servicos;
 
 public class AtualizarDadosPorRegraServico : BaseService
 {
-    public AtualizarDadosPorRegraServico(string stringConexao)
-        : base(stringConexao)
+    public AtualizarDadosPorRegraServico(IConnection connection, Compiler compiler)
+        : base(connection, compiler)
     { }
 
     public async Task AtualizarAsync(
@@ -38,8 +41,8 @@ public class AtualizarDadosPorRegraServico : BaseService
             var colunasRegras = parametroParaAtualizar.ColunaRegra.ToArray();
             var controle = new Controle(quantidadeDeRegistros);
 
-            var sbCommand = new StringBuilder();
-            var sbUpdate = new StringBuilder();
+            // var sbCommand = new StringBuilder();
+            // var sbUpdate = new StringBuilder();
 
             while (controle.Resto > 0)
             {
@@ -50,7 +53,7 @@ public class AtualizarDadosPorRegraServico : BaseService
                     .OrderBy($"{parametroParaAtualizar.ColunaId}")
                     .Limit(controle.Quantidade)
                     .Skip(controle.Pular)
-                    .GetAsync<int>(cancellationToken: cancellationToken);
+                    .GetAsync<Guid>(cancellationToken: cancellationToken);
 
                 var builder = CriarBuilder(colunasRegras);
                 var dataEnumerator = builder.Criar().Generate(controle.Quantidade).GetEnumerator();
@@ -66,25 +69,31 @@ public class AtualizarDadosPorRegraServico : BaseService
                     var entidade = dataEnumerator.Current;
                     var id = idsEnumerator.Current;
 
-                    sbUpdate.Clear();
+                    IEnumerable<KeyValuePair<string, object>> colunas = colunasRegras.Select(s =>
+                        new KeyValuePair<string, object>(s.Key, RegraService.ObterValor(entidade, s.Value)));
 
-                    sbUpdate.Append($"UPDATE {parametroParaAtualizar.Tabela.NomeCompletoTabela} SET ");
+                    var query = _queryFactory.Query(parametroParaAtualizar.Tabela.NomeCompletoTabela)
+                        .Where(parametroParaAtualizar.ColunaId, id)
+                        .AsUpdate(colunas);
 
-                    var sets = string.Join(", ", colunasRegras.Select(s => $"{s.Key} = '{RegraService.ObterValor(entidade, s.Value)}'"));
-                    sbUpdate.Append(sets);
+                    await _queryFactory.ExecuteAsync(query, cancellationToken: cancellationToken);
 
-                    sbUpdate.Append($" WHERE {parametroParaAtualizar.ColunaId} = {id}");
+                    // sbUpdate.Append($"UPDATE {parametroParaAtualizar.Tabela.NomeCompletoTabela} SET ");
+                    //
+                    // sbUpdate.Append(sets);
+                    //
+                    // sbUpdate.Append($" WHERE {parametroParaAtualizar.ColunaId} = {id}");
 
-                    sbCommand.AppendLine(sbUpdate.ToString());
+                    // sbCommand.AppendLine($"{_queryFactory.Compiler.Compile(query).Sql};");
                 }
 
-                await _conexao.ExecuteAsync(
-                    sbCommand.ToString(),
-                    cancellationToken);
+                // await _conexao.ExecuteAsync(
+                //     sbCommand.ToString(),
+                //     cancellationToken);
 
                 controle.AtualizarControle();
 
-                sbCommand.Clear();
+                // sbCommand.Clear();
             }
         }
     }

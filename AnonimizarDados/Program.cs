@@ -6,6 +6,11 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AnonimizarDados.Adapters.Contrato;
+using AnonimizarDados.Adapters.Postgres;
+using AnonimizarDados.Adapters.SqlServer;
+using AnonimizarDados.Enums;
+using SqlKata.Compilers;
 
 namespace AnonimizarDados;
 
@@ -25,6 +30,7 @@ internal static class Program
         var configuracao = LerArquivoDeConfiguracao();
 
         var parametros = configuracao.GetSection("Parametros").Get<Parametros>();
+        var tipoBanco = configuracao.GetSection("TipoBanco").Get<TipoBanco>();
         var stringConexao = configuracao.GetConnectionString("Banco");
 
         if (parametros is null)
@@ -39,35 +45,49 @@ internal static class Program
             return;
         }
 
-        if (!TestarConexaoComBanco(stringConexao))
+        IConnection connection = tipoBanco switch
+        {
+            TipoBanco.SqlServer => new ConnectionSqlServer(stringConexao),
+            TipoBanco.Postgres => new ConnectionPostgres(stringConexao),
+            _ => throw new NotImplementedException()
+        };
+
+        Compiler compiler = tipoBanco switch
+        {
+            TipoBanco.SqlServer => new SqlServerCompiler(),
+            TipoBanco.Postgres => new PostgresCompiler(),
+            _ => throw new NotImplementedException()
+        };
+
+        if (!TestarConexaoComBanco(connection))
         {
             return;
         }
 
         if (parametros.AtualizarPorValor.Any())
         {
-            await new AtualizarDadosPorValorServico(stringConexao).AtualizarAsync(
+            await new AtualizarDadosPorValorServico(connection, compiler).AtualizarAsync(
                 parametros.AtualizarPorValor,
                 TokenSource.Token);
         }
 
         if (parametros.AtualizarPorRegra.Any())
         {
-            await new AtualizarDadosPorRegraServico(stringConexao).AtualizarAsync(
+            await new AtualizarDadosPorRegraServico(connection, compiler).AtualizarAsync(
                 parametros.AtualizarPorRegra,
                 TokenSource.Token);
         }
 
         if (parametros.Excluir.Any())
         {
-            await new ExcluirDadosServico(stringConexao).ExcluirAsync(
+            await new ExcluirDadosServico(connection, compiler).ExcluirAsync(
                 parametros.Excluir,
                 TokenSource.Token);
         }
 
         if (parametros.Truncar.Any())
         {
-            await new ExcluirDadosServico(stringConexao).TruncarAsync(
+            await new ExcluirDadosServico(connection, compiler).TruncarAsync(
                 parametros.Truncar,
                 TokenSource.Token);
         }
@@ -84,22 +104,22 @@ internal static class Program
         return configurationBuilder.Build();
     }
 
-    private static bool TestarConexaoComBanco(string stringConexao)
+    private static bool TestarConexaoComBanco(IConnection connection)
     {
-        using var conexao = new SqlConnection(stringConexao);
+        using var conexao = connection.Create();
 
         try
         {
             conexao.Open();
 
-            if (conexao.Database.EndsWith("_RANDOM"))
                 return true;
-
-            Console.WriteLine("Banco de dados inválido. Aponte para um banco de dados com final '_RANDOM'.");
-
-            return false;
+            // if (conexao.Database.EndsWith("_RANDOM"))
+            //
+            // Console.WriteLine("Banco de dados inválido. Aponte para um banco de dados com final '_RANDOM'.");
+            //
+            // return false;
         }
-        catch (SqlException ex)
+        catch (Exception ex)
         {
             Console.WriteLine("Falha ao conectar no banco de dados.");
             Console.WriteLine(ex.Message);

@@ -1,40 +1,32 @@
+using System.Data.Common;
 using AnonimizarDados.ValueObjects;
 using Dapper;
-using Microsoft.Data.SqlClient;
 using SqlKata.Compilers;
 using SqlKata.Execution;
 using System.Threading;
 using System.Threading.Tasks;
+using AnonimizarDados.Adapters.Contrato;
 
 namespace AnonimizarDados.Servicos
 {
     public abstract class BaseService
     {
-        internal readonly SqlConnection _conexao;
+        internal IConnection _connection;
+        internal readonly DbConnection _conexao;
         internal readonly QueryFactory _queryFactory;
 
-        public BaseService(string stringConexao)
+        public BaseService(IConnection connection, Compiler compiler)
         {
-            _conexao = new SqlConnection(stringConexao);
-            var compilador = new SqlServerCompiler();
-            _queryFactory = new QueryFactory(_conexao, compilador, _conexao.CommandTimeout);
+            _connection = connection;
+            _conexao = connection.Create();
+            _queryFactory = new QueryFactory(_conexao, compiler, _conexao.ConnectionTimeout);
         }
 
         public async Task<bool> VerificarExistenciaTabela(
             DefinicaoTabela tabela,
             CancellationToken cancellationToken)
         {
-            var query = $@"
-                IF EXISTS (
-                    SELECT 1 FROM INFORMATION_SCHEMA.TABLES
-                    WHERE TABLE_TYPE='BASE TABLE'
-                    AND TABLE_SCHEMA = '{tabela.NomeEsquema}'
-                    AND TABLE_NAME = '{tabela.NomeTabela}')
-                SELECT 1
-                ELSE
-                SELECT 0";
-
-            var tabelaExiste = await _conexao.ExecuteScalarAsync<bool>(query, cancellationToken);
+            var tabelaExiste = await _connection.TableExists(_conexao, tabela.NomeEsquema, tabela.NomeTabela);
 
             if (!tabelaExiste)
             {

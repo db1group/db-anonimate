@@ -6,13 +6,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AnonimizarDados.Adapters.Contrato;
+using SqlKata.Compilers;
 
 namespace AnonimizarDados.Servicos;
 
 public class ExcluirDadosServico : BaseService
 {
-    public ExcluirDadosServico(string stringConexao)
-        : base(stringConexao)
+    public ExcluirDadosServico(IConnection connection, Compiler compiler)
+        : base(connection, compiler)
     { }
 
     public async Task ExcluirAsync(

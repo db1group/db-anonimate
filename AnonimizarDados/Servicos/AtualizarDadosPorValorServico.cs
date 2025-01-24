@@ -5,15 +5,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AnonimizarDados.Adapters.Contrato;
+using SqlKata.Compilers;
 
 namespace AnonimizarDados.Servicos;
 
-public class AtualizarDadosPorValorServico : BaseService
+public class AtualizarDadosPorValorServico(IConnection connection, Compiler compiler)
+    : BaseService(connection, compiler)
 {
-    public AtualizarDadosPorValorServico(string stringConexao)
-        : base(stringConexao)
-    { }
-
     public async Task AtualizarAsync(
         IEnumerable<ParametrosAtualizacaoDeValor> parametrosParaAtualizar,
         CancellationToken cancellationToken)
